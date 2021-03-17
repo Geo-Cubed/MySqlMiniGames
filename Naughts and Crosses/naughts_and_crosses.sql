@@ -45,15 +45,19 @@ end|
 drop procedure if exists `set_up_game_board`|
 create procedure `set_up_game_board`(in game_type enum('computer', 'player'))
 begin
-	delete from `game_board`;
+    declare firstTurn int default floor(rand() * (2 - 1 + 1)) + 1;
     
+	delete from `game_board`;
     insert into `game_board`(`id`, `x`)
     values (1, 'A'), (2, 'B'), (3, 'C');
     
     delete from `setting`;
-    
     insert into `setting` (`name`, `value`)
-    values ('game_type', game_type), ('turn_counter', '1');
+    values ('game_type', game_type), ('turn_counter', '1'), ('first_turn', firstTurn);
+    
+    if (firstTurn = 1) then
+        call `move`('2', 'B');
+    end if;
     
     select `x`, `1`, `2`, `3` from `game_board` 
     order by `id` asc;
@@ -154,6 +158,72 @@ drop function if exists `detect_win`|
 create function `detect_win`(piece enum('X', 'O'))
 returns int
 begin
-	return (0);
+	declare counter int default 0;
+    declare win varchar(3) default concat(piece, piece, piece);
+	
+    set counter := (select cast(`value` as unsigned) from `setting` where `name` = 'turn_counter');
+    if (counter < 6) then
+		return (0);
+    end if;
+    
+    if ((select concat(`1`,`2`,`3`) from `game_board` where `x` = 'A') = win) then # top row
+		return (1);
+	elseif ((select concat(`1`,`2`,`3`) from `game_board` where `x` = 'B') = win) then # middle row
+		return (1);
+	elseif ((select concat(`1`,`2`,`3`) from `game_board` where `x` = 'C') = win) then # bottom row
+		return (1);
+	elseif 
+    (
+		(
+			select concat(a.`1`, b.`1`, c.`1`)
+			from `game_board` as a
+			inner join `game_board` as b on a.Id + 1 = b.Id
+			inner join `game_board` as c on b.Id + 1 = c.Id
+        ) = win
+    ) then # left column
+		return (1);
+	elseif 
+    (
+		(
+			select concat(a.`2`, b.`2`, c.`2`)
+			from `game_board` as a
+			inner join `game_board` as b on a.Id + 1 = b.Id
+			inner join `game_board` as c on b.Id + 1 = c.Id
+        ) = win
+    ) then # middle column
+		return (1);
+	elseif 
+    (
+		(
+			select concat(a.`3`, b.`3`, c.`3`)
+			from `game_board` as a
+			inner join `game_board` as b on a.Id + 1 = b.Id
+			inner join `game_board` as c on b.Id + 1 = c.Id
+        ) = win
+    ) then # right column
+		return (1);
+	elseif 
+    (
+		(
+			select concat(a.`1`, b.`2`, c.`3`)
+			from `game_board` as a
+			inner join `game_board` as b on a.Id + 1 = b.Id
+			inner join `game_board` as c on b.Id + 1 = c.Id
+        ) = win
+    ) then # left diagnal
+		return (1);
+	elseif 
+    (
+		(
+			select concat(a.`3`, b.`2`, c.`1`)
+			from `game_board` as a
+			inner join `game_board` as b on a.Id + 1 = b.Id
+			inner join `game_board` as c on b.Id + 1 = c.Id
+        ) = win
+    ) then # right diagnal
+		return (1);
+	else
+		return (0);
+    end if;
 end|
 delimiter ;
