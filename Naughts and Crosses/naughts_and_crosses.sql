@@ -53,7 +53,7 @@ begin
     delete from `setting`;
     
     insert into `setting` (`name`, `value`)
-    values ('current_turn', '1'), ('game_type', game_type);
+    values ('game_type', game_type), ('turn_counter', '1');
     
     select `x`, `1`, `2`, `3` from `game_board` 
     order by `id` asc;
@@ -64,7 +64,10 @@ drop function if exists `get_piece`|
 create function `get_piece`()
 returns enum('X', 'O')
 begin
-	if (select `value` from `setting` where `name` = 'current_turn') = 1 then
+	declare counter int;
+    set counter := (select cast(`value` as unsigned) from `setting` where `name` = 'turn_counter');
+    
+	if (counter % 2) = 1 then
 		return ('X');
     else
 		return ('O');
@@ -76,14 +79,25 @@ drop procedure if exists `change_turn`|
 create procedure `change_turn`()
 begin
 	declare turn char default '1';
+    declare counter int;
     
     if (select `value` from `setting` where `name` = 'current_turn') = 1 then
-		set turn = '2';
+		set turn := '2';
 	end if;
     
     update `setting`
     set `value` = turn
 	where `name` = 'current_turn'; 
+    
+    set counter := (
+		select cast(`value` as unsigned) from `setting` 
+		where `name` = 'turn_counter' limit 1
+	);
+    
+    set counter := counter + 1;
+    update `setting`
+    set `value` = counter
+    where `name` = 'turn_counter';
 end|
 
 drop procedure if exists `move`|
@@ -133,4 +147,13 @@ begin
     select output;
 end|
 
+# ineficient but seeing as it's only a 3x3 grid it's only 8 checks... which is nothing
+# idealy I would implement a check based off the last placed position and then check the r c dl dr 
+# this implementation would half the needed checks but would be a pain to do in sql which is why I'm not doing it.
+drop function if exists `detect_win`|
+create function `detect_win`(piece enum('X', 'O'))
+returns int
+begin
+	return (0);
+end|
 delimiter ;
