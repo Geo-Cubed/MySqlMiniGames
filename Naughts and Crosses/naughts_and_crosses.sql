@@ -119,36 +119,58 @@ begin
 		set row_id = 3;
 	end if;
     
-    if col_picked = '1' then
-		if (select `1` from `game_board` where `id` = row_id) is null then
+    # 0 = invalid move, 1 = valid move, 2 = winning move
+	set output := `place_piece`(col_picked, row_id, piece);
+    
+    if output = 2 then
+		select concat(piece, ' wins (use call `display_board`; to show the final board)') as 'Game Over';
+    elseif output = 1 then
+		call `change_turn`();
+        call `display_board`();
+	else
+		select concat(col_picked, ' ', row_picked, ' is an invlaid position') as 'Invalid space';
+    end if;
+end|
+
+drop function if exists `place_piece`|
+create function `place_piece`(col_picked int, row_picked int, piece enum('X', 'O'))
+returns int
+begin 
+	declare output int default 0;
+    declare piece char default `get_piece`();
+     
+	if col_picked = '1' then
+		if (select `1` from `game_board` where `id` = row_picked) is null then
 			update `game_board`
 			set `1` = piece
-            where `id` = row_id;    
+            where `id` = row_picked;    
             
-            set output = 1;
+            set output := 1;
         end if;
     elseif col_picked = '2' then
-		if (select `2` from `game_board` where `id` = row_id) is null then
+		if (select `2` from `game_board` where `id` = row_picked) is null then
 			update `game_board`
             set `2` = piece
-            where `id` = row_id;
+            where `id` = row_picked;
             
-            set output = 1;
+            set output := 1;
 		end if;
     else
-		if (select `3` from `game_board` where `id` = row_id) is null then
+		if (select `3` from `game_board` where `id` = row_picked) is null then
 			update `game_board`
             set `3` = piece
-            where `id` = row_id;
+            where `id` = row_picked;
             
-            set output = 1;
+            set output := 1;
 		end if;
     end if;
     
-    if output = 1 then
-		call `change_turn`();
-    end if;
-    select output;
+    # THERE MIGHT BE AN ISSUE AROUND HERE AS IT'S NOT ADDING THE NUMBERS.
+    if (output = 1) then
+		set output := output + `detect_win`(piece);
+	end if;
+    
+    return (output);
 end|
 
 # ineficient but seeing as it's only a 3x3 grid it's only 8 checks... which is nothing
